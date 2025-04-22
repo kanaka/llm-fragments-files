@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from typing import List, Tuple
 import httpx
 import llm
@@ -6,6 +8,7 @@ import pathlib
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from urllib.parse import urlparse
 
@@ -198,3 +201,10 @@ def _to_markdown(issue: dict, comments: List[dict]) -> str:
             md.append("---\n")
 
     return "\n".join(md).rstrip() + "\n"
+
+if __name__ == "__main__":
+    fragments = github_loader(sys.argv[1])
+    for fragment in fragments:
+        print("FILE:", fragment.source)
+        print("CONTENT:\n" + re.sub(r'^', '    ', str(fragment), flags=re.MULTILINE))
+

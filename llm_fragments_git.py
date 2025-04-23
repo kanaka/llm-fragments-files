@@ -17,6 +17,8 @@ from urllib.parse import urlparse
 def register_fragment_loaders(register):
     register("github", github_loader)
     register("issue", github_issue_loader)
+    register("git", git_loader)
+    register("dir", dir_loader)
 
 
 def github_loader(argument: str) -> List[llm.Fragment]:
@@ -26,7 +28,7 @@ def github_loader(argument: str) -> List[llm.Fragment]:
     Argument is a GitHub repository URL or username/repository
     """
     # Normalize the repository argument
-    if not argument.startswith(("http://", "https://")):
+    if not argument.startswith(("http://", "https://", "git@")):
         # Assume format is username/repo
         repo_url = f"https://github.com/{argument}.git"
     else:
@@ -55,41 +57,44 @@ def github_loader(argument: str) -> List[llm.Fragment]:
             )
 
             # Process the cloned repository
-            repo_path = pathlib.Path(temp_dir)
-            fragments = []
-
-            # Walk through all files in the repository, excluding .git directory
-            for root, dirs, files in os.walk(repo_path):
-                # Remove .git from dirs to prevent descending into it
-                if ".git" in dirs:
-                    dirs.remove(".git")
-
-                # Process files
-                for file in files:
-                    file_path = pathlib.Path(root) / file
-                    if file_path.is_file():
-                        try:
-                            # Try to read the file as UTF-8
-                            content = file_path.read_text(encoding="utf-8")
-
-                            # Create a relative path for the fragment identifier
-                            relative_path = file_path.relative_to(repo_path)
-
-                            # Add the file as a fragment
-                            fragments.append(
-                                llm.Fragment(content, f"{argument}/{relative_path}")
-                            )
-                        except UnicodeDecodeError:
-                            # Skip files that can't be decoded as UTF-8
-                            continue
+            fragments = [llm.Fragment(content, str(pathlib.Path(argument, path)))
+                    for path, content in _git_files(temp_dir)]
 
             return fragments
         except subprocess.CalledProcessError as e:
             # Handle Git errors
-            raise ValueError(f"Failed to clone repository {repo_url}: {e.stderr}")
+            raise ValueError(f"Failed to clone or process repository {repo_url}: {e.stderr}")
         except Exception as e:
             # Handle other errors
             raise ValueError(f"Error processing repository {repo_url}: {str(e)}")
+
+
+def git_loader(argument: str) -> List[llm.Fragment]:
+    """
+    Load files from a local git directory as fragments
+
+    Argument is a path to a git directory
+    """
+    try:
+        return [llm.Fragment(content, str(pathlib.Path(argument, path)))
+            for path, content in _git_files(argument)]
+
+    except Exception as e:
+        raise ValueError(f"Error processing git directory {argument}: {str(e)}")
+
+
+def dir_loader(argument: str) -> List[llm.Fragment]:
+    """
+    Load files from a local directory as fragments
+
+    Argument is a path to a directory
+    """
+    try:
+        return [llm.Fragment(content, str(pathlib.Path(argument, path)))
+            for path, content in _dir_files(argument)]
+
+    except Exception as e:
+        raise ValueError(f"Error processing directory {argument}: {str(e)}")
 
 
 def github_issue_loader(argument: str) -> llm.Fragment:
@@ -126,6 +131,53 @@ def github_issue_loader(argument: str) -> llm.Fragment:
         markdown,
         source=f"https://github.com/{owner}/{repo}/issues/{number}",
     )
+
+
+def _git_files(repo_path: str) -> List[Tuple[str, str]]:
+    """
+    Return [(path, content), ...] for files in a git repository.
+    Excludes .git and gitignored files.
+    """
+    # List tracked and untracked files, excluding .git and gitignored files
+    res = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=repo_path,
+    )
+    relative_paths = res.stdout.split("\n")
+
+    return _load_files(repo_path, relative_paths)
+
+
+def _dir_files(dir_path: str) -> List[Tuple[str, str]]:
+    relative_paths = [(pathlib.Path(root) / file).relative_to(dir_path)
+            for root, dirs, files in os.walk(dir_path)
+            for file in files]
+    return _load_files(dir_path, relative_paths)
+
+
+def _load_files(top_path: str, relative_paths: List[str]) -> List[Tuple[str, str]]:
+    """
+    Return [(path, content), ...] for each file in relative_paths that
+    is a regular text (UTF-8) file.
+    """
+    files = []
+    for relative_path in relative_paths:
+        file_path = pathlib.Path(top_path) / relative_path
+        if file_path.is_file():
+            try:
+                # Try to read the file as UTF-8
+                content = file_path.read_text(encoding="utf-8")
+
+                # Add the file as (path, content)
+                files.append((relative_path, content))
+            except UnicodeDecodeError:
+                # Skip files that can't be decoded as UTF-8
+                continue
+
+    return files
 
 
 def _parse_argument(arg: str) -> Tuple[str, str, int]:
@@ -203,8 +255,15 @@ def _to_markdown(issue: dict, comments: List[dict]) -> str:
     return "\n".join(md).rstrip() + "\n"
 
 if __name__ == "__main__":
-    fragments = github_loader(sys.argv[1])
+    [kind, location] = sys.argv[1].split(":")
+    loaders = {
+            "github": github_loader,
+            "issue": lambda x: [github_issue_loader(x)],
+            "git": git_loader,
+            "dir": dir_loader
+            }
+    fragments = loaders[kind](location)
     for fragment in fragments:
-        print("FILE:", fragment.source)
+        print("FILE/SOURCE:", fragment.source)
         print("CONTENT:\n" + re.sub(r'^', '    ', str(fragment), flags=re.MULTILINE))
 

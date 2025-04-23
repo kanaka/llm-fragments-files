@@ -1,9 +1,9 @@
 [project]
-name = "llm-fragments-github"
-version = "0.2.1"
-description = "Load GitHub repository contents as LLM fragments"
+name = "llm-fragments-git"
+version = "0.1.0"
+description = "Load directory/git/GitHub/Issue contents as LLM fragments"
 readme = "README.md"
-authors = [{name = "Simon Willison"}]
+authors = [{name = "Simon Willison"}, {name = "Joel Martin"}]
 license = "Apache-2.0"
 requires-python = ">=3.9"
 dependencies = [
@@ -15,13 +15,13 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project.urls]
-Homepage = "https://github.com/simonw/llm-fragments-github"
-Changelog = "https://github.com/simonw/llm-fragments-github/releases"
-Issues = "https://github.com/simonw/llm-fragments-github/issues"
-CI = "https://github.com/simonw/llm-fragments-github/actions"
+Homepage = "https://github.com/kanaka/llm-fragments-git"
+Changelog = "https://github.com/kanaka/llm-fragments-git/releases"
+Issues = "https://github.com/kanaka/llm-fragments-git/issues"
+CI = "https://github.com/kanaka/llm-fragments-git/actions"
 
 [project.entry-points.llm]
-fragments_github = "llm_fragments_github"
+fragments_git = "llm_fragments_git"
 
 [project.optional-dependencies]
 test = ["pytest"]

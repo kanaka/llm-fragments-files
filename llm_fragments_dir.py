@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
 
 from typing import List, Tuple
-import httpx
 import llm
 import os
 import pathlib
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
-from urllib.parse import urlparse
 
 
 @llm.hookimpl
 def register_fragment_loaders(register):
-    register("github", github_loader)
-    register("issue", github_issue_loader)
-    register("git", git_loader)
     register("dir", dir_loader)
+    register("github", github_loader)
+    register("git", git_loader)
 
 
 def github_loader(argument: str) -> List[llm.Fragment]:
@@ -57,10 +53,7 @@ def github_loader(argument: str) -> List[llm.Fragment]:
             )
 
             # Process the cloned repository
-            fragments = [llm.Fragment(content, str(pathlib.Path(argument, path)))
-                    for path, content in _git_files(temp_dir)]
-
-            return fragments
+            return _files_to_fragments(argument, _git_files(temp_dir))
         except subprocess.CalledProcessError as e:
             # Handle Git errors
             raise ValueError(f"Failed to clone or process repository {repo_url}: {e.stderr}")
@@ -76,8 +69,7 @@ def git_loader(argument: str) -> List[llm.Fragment]:
     Argument is a path to a git directory
     """
     try:
-        return [llm.Fragment(content, str(pathlib.Path(argument, path)))
-            for path, content in _git_files(argument)]
+        return _files_to_fragments(argument, _git_files(argument))
 
     except Exception as e:
         raise ValueError(f"Error processing git directory {argument}: {str(e)}")
@@ -90,47 +82,10 @@ def dir_loader(argument: str) -> List[llm.Fragment]:
     Argument is a path to a directory
     """
     try:
-        return [llm.Fragment(content, str(pathlib.Path(argument, path)))
-            for path, content in _dir_files(argument)]
+        return _files_to_fragments(argument, _dir_files(argument))
 
     except Exception as e:
         raise ValueError(f"Error processing directory {argument}: {str(e)}")
-
-
-def github_issue_loader(argument: str) -> llm.Fragment:
-    """
-    Fetch GitHub issue and comments as Markdown
-
-    Argument is either "owner/repo/NUMBER"
-    or "https://github.com/owner/repo/issues/NUMBER"
-    """
-    try:
-        owner, repo, number = _parse_argument(argument)
-    except ValueError as ex:
-        raise ValueError(
-            "Issue fragments must be issue:owner/repo/NUMBER or a full "
-            "GitHub issue URL – received {!r}".format(argument)
-        ) from ex
-
-    client = _github_client()
-
-    issue_api = f"https://api.github.com/repos/{owner}/{repo}/issues/{number}"
-
-    # 1. The issue itself
-    issue_resp = client.get(issue_api)
-    _raise_for_status(issue_resp, issue_api)
-    issue = issue_resp.json()
-
-    # 2. All comments (pagination)
-    comments = _get_all_pages(client, f"{issue_api}/comments?per_page=100")
-
-    # 3. Markdown
-    markdown = _to_markdown(issue, comments)
-
-    return llm.Fragment(
-        markdown,
-        source=f"https://github.com/{owner}/{repo}/issues/{number}",
-    )
 
 
 def _git_files(repo_path: str) -> List[Tuple[str, str]]:
@@ -180,61 +135,14 @@ def _load_files(top_path: str, relative_paths: List[str]) -> List[Tuple[str, str
     return files
 
 
-def _parse_argument(arg: str) -> Tuple[str, str, int]:
-    """
-    Returns (owner, repo, number) or raises ValueError
-    """
-    # Form 1: full URL
-    if arg.startswith("http://") or arg.startswith("https://"):
-        parsed = urlparse(arg)
-        parts = parsed.path.strip("/").split("/")
-        # /owner/repo/issues/123
-        if len(parts) >= 4 and parts[2] == "issues":
-            owner, repo, _, number = parts[:4]
-            return owner, repo, int(number)
+def _files_to_fragments(prefix: str, files: List[Tuple[str, str]]) -> List[llm.Fragment]:
+    fragments = []
+    for path, content in files:
+        full_path = str(pathlib.Path(prefix, path))
+        frag = f"File: {full_path}\n```\n{content}\n```\n"
+        fragments.append(llm.Fragment(frag, full_path))
 
-    # Form 2: owner/repo/number
-    m = re.match(r"([^/]+)/([^/]+)/(\d+)$", arg)
-    if m:
-        owner, repo, number = m.groups()
-        return owner, repo, int(number)
-
-    raise ValueError("Issue should be org/repo/NUMBER or a full GitHub URL")
-
-
-def _github_client() -> httpx.Client:
-    headers = {"Accept": "application/vnd.github+json"}
-    token = os.getenv("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    return httpx.Client(headers=headers, timeout=30.0, follow_redirects=True)
-
-
-def _raise_for_status(resp: httpx.Response, url: str) -> None:
-    try:
-        resp.raise_for_status()
-    except httpx.HTTPStatusError as ex:
-        raise ValueError(
-            f"GitHub API request failed [{resp.status_code}] for {url}"
-        ) from ex
-
-
-def _get_all_pages(client: httpx.Client, url: str) -> List[dict]:
-    items: List[dict] = []
-    while url:
-        resp = client.get(url)
-        _raise_for_status(resp, url)
-        items.extend(resp.json())
-
-        # Link header pagination
-        url = None
-        link = resp.headers.get("Link")
-        if link:
-            for part in link.split(","):
-                if part.endswith('rel="next"'):
-                    url = part[part.find("<") + 1 : part.find(">")]
-                    break
-    return items
+    return fragments
 
 
 def _to_markdown(issue: dict, comments: List[dict]) -> str:
@@ -258,7 +166,6 @@ if __name__ == "__main__":
     [kind, location] = sys.argv[1].split(":")
     loaders = {
             "github": github_loader,
-            "issue": lambda x: [github_issue_loader(x)],
             "git": git_loader,
             "dir": dir_loader
             }

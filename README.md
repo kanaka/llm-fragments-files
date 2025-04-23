@@ -1,9 +1,9 @@
-# llm-fragments-dir
+# llm-fragments-files
 
-[![PyPI](https://img.shields.io/pypi/v/llm-fragments-dir.svg)](https://pypi.org/project/llm-fragments-dir/)
-[![Changelog](https://img.shields.io/github/v/release/simonw/llm-fragments-dir?include_prereleases&label=changelog)](https://github.com/simonw/llm-fragments-dir/releases)
-[![Tests](https://github.com/simonw/llm-fragments-dir/actions/workflows/test.yml/badge.svg)](https://github.com/simonw/llm-fragments-dir/actions/workflows/test.yml)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/simonw/llm-fragments-dir/blob/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/llm-fragments-files.svg)](https://pypi.org/project/llm-fragments-files/)
+[![Changelog](https://img.shields.io/github/v/release/simonw/llm-fragments-files?include_prereleases&label=changelog)](https://github.com/simonw/llm-fragments-files/releases)
+[![Tests](https://github.com/simonw/llm-fragments-files/actions/workflows/test.yml/badge.svg)](https://github.com/simonw/llm-fragments-files/actions/workflows/test.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/simonw/llm-fragments-files/blob/main/LICENSE)
 
 Load directory/git/GitHub contents as file fragments (with file
 names). The fragment format is like this:
@@ -18,7 +18,7 @@ file contents
 
 Install this plugin in the same environment as [LLM](https://llm.datasette.io/).
 ```bash
-llm install llm-fragments-dir
+llm install llm-fragments-files
 ```
 ## Usage
 
@@ -40,7 +40,7 @@ Set an API token in the environment variable `GITHUB_TOKEN` to access private re
 
 To set up this plugin locally, first checkout the code. Then create a new virtual environment:
 ```bash
-cd llm-fragments-dir
+cd llm-fragments-files
 python -m venv venv
 source venv/bin/activate
 ```

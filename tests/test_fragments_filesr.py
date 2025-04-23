@@ -1,17 +1,21 @@
-from llm_fragments_dir import git_loader, dir_loader, github_loader
+from llm_fragments_files import file_loader, dir_loader, git_loader, github_loader
 import pytest
 
 def _frags(fs):
     return [(str(f.source), str(f)) for f in fs]
 
 
-def test_git_loader():
-    fragments = git_loader("./")
-    assert "README.md" in [a for a, _ in _frags(fragments)]
+def test_file_loader():
+    fragments = file_loader("./example/file1.txt")
     assert ("example/file1.txt", "File: example/file1.txt\n```\nThis is an example file.\n\n```\n") in _frags(fragments)
 
 def test_dir_loader():
     fragments = dir_loader("./example")
+    assert ("example/file1.txt", "File: example/file1.txt\n```\nThis is an example file.\n\n```\n") in _frags(fragments)
+
+def test_git_loader():
+    fragments = git_loader("./")
+    assert "README.md" in [a for a, _ in _frags(fragments)]
     assert ("example/file1.txt", "File: example/file1.txt\n```\nThis is an example file.\n\n```\n") in _frags(fragments)
 
 def test_github_loader():

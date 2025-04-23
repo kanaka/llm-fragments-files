@@ -1,7 +1,7 @@
 [project]
-name = "llm-fragments-dir"
+name = "llm-fragments-files"
 version = "0.1.0"
-description = "Load directory/git/GitHub contents as LLM file fragments (with file names)"
+description = "Load files (or whole directories/git repos) as fragments (with file names)"
 readme = "README.md"
 authors = [{name = "Simon Willison"}, {name = "Joel Martin"}]
 license = "Apache-2.0"
@@ -15,13 +15,13 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project.urls]
-Homepage = "https://github.com/kanaka/llm-fragments-dir"
-Changelog = "https://github.com/kanaka/llm-fragments-dir/releases"
-Issues = "https://github.com/kanaka/llm-fragments-dir/issues"
-CI = "https://github.com/kanaka/llm-fragments-dir/actions"
+Homepage = "https://github.com/kanaka/llm-fragments-files"
+Changelog = "https://github.com/kanaka/llm-fragments-files/releases"
+Issues = "https://github.com/kanaka/llm-fragments-files/issues"
+CI = "https://github.com/kanaka/llm-fragments-files/actions"
 
 [project.entry-points.llm]
-fragments_dir = "llm_fragments_dir"
+fragments_files = "llm_fragments_files"
 
 [project.optional-dependencies]
 test = ["pytest"]

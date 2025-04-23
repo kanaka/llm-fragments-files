@@ -12,9 +12,51 @@ import tempfile
 
 @llm.hookimpl
 def register_fragment_loaders(register):
+    register("file", file_loader)
     register("dir", dir_loader)
-    register("github", github_loader)
     register("git", git_loader)
+    register("github", github_loader)
+
+
+def file_loader(argument: str) -> List[llm.Fragment]:
+    """
+    Load a file from a local directory as a fragment
+
+    Argument is a path to a directory
+    """
+    try:
+        relative_path = pathlib.Path(argument)
+
+        return _files_to_fragments("", _load_files("", [relative_path]))
+
+    except Exception as e:
+        raise ValueError(f"Error processing directory {argument}: {str(e)}")
+
+
+def dir_loader(argument: str) -> List[llm.Fragment]:
+    """
+    Load files from a local directory as fragments
+
+    Argument is a path to a directory
+    """
+    try:
+        return _files_to_fragments(argument, _dir_files(argument))
+
+    except Exception as e:
+        raise ValueError(f"Error processing directory {argument}: {str(e)}")
+
+
+def git_loader(argument: str) -> List[llm.Fragment]:
+    """
+    Load files from a local git working copy as fragments
+
+    Argument is a path to the top or subdirectory of a git working copy.
+    """
+    try:
+        return _files_to_fragments(argument, _git_files(argument))
+
+    except Exception as e:
+        raise ValueError(f"Error processing git directory {argument}: {str(e)}")
 
 
 def github_loader(argument: str) -> List[llm.Fragment]:
@@ -60,32 +102,6 @@ def github_loader(argument: str) -> List[llm.Fragment]:
         except Exception as e:
             # Handle other errors
             raise ValueError(f"Error processing repository {repo_url}: {str(e)}")
-
-
-def git_loader(argument: str) -> List[llm.Fragment]:
-    """
-    Load files from a local git directory as fragments
-
-    Argument is a path to a git directory
-    """
-    try:
-        return _files_to_fragments(argument, _git_files(argument))
-
-    except Exception as e:
-        raise ValueError(f"Error processing git directory {argument}: {str(e)}")
-
-
-def dir_loader(argument: str) -> List[llm.Fragment]:
-    """
-    Load files from a local directory as fragments
-
-    Argument is a path to a directory
-    """
-    try:
-        return _files_to_fragments(argument, _dir_files(argument))
-
-    except Exception as e:
-        raise ValueError(f"Error processing directory {argument}: {str(e)}")
 
 
 def _git_files(repo_path: str) -> List[Tuple[str, str]]:
@@ -165,10 +181,11 @@ def _to_markdown(issue: dict, comments: List[dict]) -> str:
 if __name__ == "__main__":
     [kind, location] = sys.argv[1].split(":")
     loaders = {
-            "github": github_loader,
-            "git": git_loader,
-            "dir": dir_loader
-            }
+        "file": file_loader,
+        "dir": dir_loader,
+        "git": git_loader,
+        "github": github_loader
+    }
     fragments = loaders[kind](location)
     for fragment in fragments:
         print("FILE/SOURCE:", fragment.source)
